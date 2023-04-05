@@ -133,13 +133,8 @@ void backward_pow(struct Value *v) {
   v->prev[0]->grad += n * pow(v->prev[0]->data, n - 1) * v->grad;
 }
 
-void backward_tanh(Value *v) {
+void backward_tanh(struct Value *v) {
   double t = v->data;
-  printf("t in backward_tanh: %f\n", t);
-  printf("o->grad in backward_tanh: %f\n", v->grad);
-  printf("n->grad in backward_tanh: %f\n", (1 - t * t) * v->grad);
-  printf("label: %s\n", v->label);
-  printf("prev label: %s\n", v->prev[0]->label);
   v->prev[0]->grad += (1 - t * t) * v->grad;
 }
 
@@ -149,16 +144,15 @@ void backward_exp(struct Value *v) {
 }
 
 void backward_all(Value *v) {
-  if (v->backward == NULL) {
+  if (v->prev_size == 0) {
     return;
   }
 
+  v->backward(v);
+
   for (int i = 0; i < v->prev_size; i++) {
-    printf("%d: %s\n", i, v->prev[i]->label);
     backward_all(v->prev[i]);
   }
-
-  v->backward(v);
 }
 
 int main() {
@@ -181,14 +175,27 @@ int main() {
   n->label = "n";
   Value *o = tanh_v(n);
   o->label = "o";
-  printf("o prev: %s\n", o->prev[0]->label);
-  printf("o Output: %f\n", o->data);
+  printf("o output: %f\n", o->data);
 
   o->grad = 1.0;
-  backward_tanh(o);
+/*  o->backward(o);
   printf("o grad: %f\n", o->grad);
-  /*
-      backward_all(o);
+  printf("n grad: %f\n", n->grad);
+  n->backward(n);
+  printf("b grad: %f\n", b->grad);
+  printf("x1w1x2w2 grad: %f\n", x1w1x2w2->grad);
+  x1w1x2w2->backward(x1w1x2w2);
+  printf("x1w1 grad: %f\n", x1w1->grad);
+  printf("x2w2 grad: %f\n", x2w2->grad);
+  x1w1->backward(x1w1);
+  printf("x1 grad: %f\n", x1->grad);
+  printf("w1 grad: %f\n", w1->grad);
+  x2w2->backward(x2w2);
+  printf("x2 grad: %f\n", x2->grad);
+  printf("w2 grad: %f\n", w2->grad);
+*/
+
+  backward_all(o);
 
   printf("Gradients:\n");
   printf("x1: %f\n", x1->grad);
@@ -199,7 +206,7 @@ int main() {
   printf("x2w2: %f\n", x2w2->grad);
   printf("x1w1x2w2: %f\n", x1w1x2w2->grad);
   printf("b: %f\n", b->grad);
-      */
+
   // Free memory
   free(x1);
   free(x2);
