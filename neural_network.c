@@ -1,28 +1,221 @@
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
-#include <time.h>
 
-#define NUM_INPUTS 3
-#define NUM_HIDDEN 1
-#define NUM_OUTPUTS 1
-#define NUM_SAMPLES 4
-#define NUM_ITERATIONS 20
+typedef struct Value {
+  double data;
+  double grad;
+  void (*backward)(struct Value *);
+  struct Value **prev;
+  int prev_size;
+  char op;
+  char *label;
+} Value;
 
-double random_uniform(double min, double max) {
-    return (double)rand() / RAND_MAX * (max - min) + min;
+void backward_add(struct Value *v);
+void backward_mul(struct Value *v);
+void backward_pow(struct Value *v);
+void backward_tanh(struct Value *v);
+void backward_exp(struct Value *v);
+
+Value *create_value(double data, Value **prev, int prev_size, char op,
+                    char *label) {
+  Value *v = (Value *)malloc(sizeof(Value));
+  v->data = data;
+  v->grad = 0.0;
+  v->prev = prev;
+  v->prev_size = prev_size;
+  v->op = op;
+  v->label = label;
+  return v;
 }
 
-void tanh_activation(double input, double *output, double *grad) {
-    double ex = exp(2 * input);
-    *output = (ex - 1) / (ex + 1);
-    *grad = 1 - pow(*output, 2);
+Value *add(Value *a, Value *b) {
+  Value *out = (Value *)malloc(sizeof(Value));
+  out->data = a->data + b->data;
+  out->grad = 0.0;
+  out->backward = backward_add;
+
+  out->prev_size = 2;
+  out->prev = (Value **)malloc(out->prev_size * sizeof(Value *));
+  out->prev[0] = a;
+  out->prev[1] = b;
+
+  out->op = '+';
+  out->label = "";
+
+  return out;
 }
 
+Value *mul(Value *a, Value *b) {
+  Value *out = (Value *)malloc(sizeof(Value));
+  out->data = a->data * b->data;
+  out->grad = 0.0;
+  out->backward = backward_mul;
 
+  out->prev_size = 2;
+  out->prev = (Value **)malloc(out->prev_size * sizeof(Value *));
+  out->prev[0] = a;
+  out->prev[1] = b;
 
-int main()
-{
+  out->op = '*';
+  out->label = "";
 
-	return 0;
+  return out;
+}
+
+Value *tanh_v(Value *v) {
+  double x = v->data;
+  double t = (exp(2 * x) - 1) / (exp(2 * x) + 1);
+
+  Value *out = (Value *)malloc(sizeof(Value));
+  out->data = t;
+  out->grad = 0.0;
+  out->backward = backward_tanh;
+
+  out->prev_size = 1;
+  out->prev = (Value **)malloc(out->prev_size * sizeof(Value *));
+  out->prev[0] = v;
+
+  out->op = 't';
+  out->label = "";
+
+  return out;
+}
+
+Value *pow_v(Value *v, double p) {
+  Value *out = (Value *)malloc(sizeof(Value));
+  out->data = pow(v->data, p);
+  out->grad = 0.0;
+  out->backward = backward_pow;
+
+  out->prev_size = 1;
+  out->prev = (Value **)malloc(out->prev_size * sizeof(Value *));
+  out->prev[0] = v;
+
+  out->op = 'p';
+  out->label = "";
+
+  return out;
+}
+
+Value *exp_v(Value *v) {
+  double x = v->data;
+  double e = exp(x);
+
+  Value *out = (Value *)malloc(sizeof(Value));
+  out->data = e;
+  out->grad = 0.0;
+  out->backward = backward_exp;
+
+  out->prev_size = 1;
+  out->prev = (Value **)malloc(out->prev_size * sizeof(Value *));
+  out->prev[0] = v;
+
+  out->op = 'e';
+  out->label = "";
+
+  return out;
+}
+
+void backward_add(struct Value *v) {
+  v->prev[0]->grad += 1.0 * v->grad;
+  v->prev[1]->grad += 1.0 * v->grad;
+}
+
+void backward_mul(struct Value *v) {
+  v->prev[0]->grad += v->prev[1]->data * v->grad;
+  v->prev[1]->grad += v->prev[0]->data * v->grad;
+}
+
+void backward_pow(struct Value *v) {
+  double n = v->data / v->prev[0]->data;
+  v->prev[0]->grad += n * pow(v->prev[0]->data, n - 1) * v->grad;
+}
+
+void backward_tanh(Value *v) {
+  double t = v->data;
+  printf("t in backward_tanh: %f\n", t);
+  printf("o->grad in backward_tanh: %f\n", v->grad);
+  printf("n->grad in backward_tanh: %f\n", (1 - t * t) * v->grad);
+  printf("label: %s\n", v->label);
+  printf("prev label: %s\n", v->prev[0]->label);
+  v->prev[0]->grad += (1 - t * t) * v->grad;
+}
+
+void backward_exp(struct Value *v) {
+  double e = v->data;
+  v->prev[0]->grad += e * v->grad;
+}
+
+void backward_all(Value *v) {
+  if (v->backward == NULL) {
+    return;
+  }
+
+  for (int i = 0; i < v->prev_size; i++) {
+    printf("%d: %s\n", i, v->prev[i]->label);
+    backward_all(v->prev[i]);
+  }
+
+  v->backward(v);
+}
+
+int main() {
+  // inputs x1, x2
+  Value *x1 = create_value(2.0, NULL, 0, '\0', "x1");
+  Value *x2 = create_value(0.0, NULL, 0, '\0', "x2");
+  // weights w1, w2
+  Value *w1 = create_value(-3.0, NULL, 0, '\0', "w1");
+  Value *w2 = create_value(1.0, NULL, 0, '\0', "w2");
+  // bias b
+  Value *b = create_value(6.8813735870195432, NULL, 0, '\0', "b");
+  // x1w1 + x2w2 + b
+  Value *x1w1 = mul(x1, w1);
+  x1w1->label = "x1w1";
+  Value *x2w2 = mul(x2, w2);
+  x2w2->label = "x2w2";
+  Value *x1w1x2w2 = add(x1w1, x2w2);
+  x1w1x2w2->label = "x1w1x2w2";
+  Value *n = add(x1w1x2w2, b);
+  n->label = "n";
+  Value *o = tanh_v(n);
+  o->label = "o";
+  printf("o prev: %s\n", o->prev[0]->label);
+  printf("o Output: %f\n", o->data);
+
+  o->grad = 1.0;
+  backward_tanh(o);
+  printf("o grad: %f\n", o->grad);
+  /*
+      backward_all(o);
+
+  printf("Gradients:\n");
+  printf("x1: %f\n", x1->grad);
+  printf("x2: %f\n", x2->grad);
+  printf("w1: %f\n", w1->grad);
+  printf("w2: %f\n", w2->grad);
+  printf("x1w1: %f\n", x1w1->grad);
+  printf("x2w2: %f\n", x2w2->grad);
+  printf("x1w1x2w2: %f\n", x1w1x2w2->grad);
+  printf("b: %f\n", b->grad);
+      */
+  // Free memory
+  free(x1);
+  free(x2);
+  free(w1);
+  free(w2);
+  free(b);
+  free(x1w1->prev);
+  free(x1w1);
+  free(x2w2->prev);
+  free(x2w2);
+  free(x1w1x2w2->prev);
+  free(x1w1x2w2);
+  free(n->prev);
+  free(n);
+  free(o->prev);
+  free(o);
+
+  return 0;
 }
