@@ -1,228 +1,309 @@
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <time.h>
+#include "value.h"
 
-typedef struct Value {
-  double data;
-  double grad;
-  void (*backward)(struct Value *);
-  struct Value **prev;
-  int prev_size;
-  char op;
-  char *label;
-} Value;
+typedef struct Neuron {
+  Value **w;
+  Value *b;
+  int nin;
+} Neuron;
 
-void backward_add(struct Value *v);
-void backward_mul(struct Value *v);
-void backward_pow(struct Value *v);
-void backward_tanh(struct Value *v);
-void backward_exp(struct Value *v);
+typedef struct Layer {
+  Neuron **neurons;
+  int nout;
+  int nin;
+} Layer;
 
-Value *create_value(double data, Value **prev, int prev_size, char op,
-                    char *label) {
-  Value *v = (Value *)malloc(sizeof(Value));
-  v->data = data;
-  v->grad = 0.0;
-  v->prev = prev;
-  v->prev_size = prev_size;
-  v->op = op;
-  v->label = label;
-  return v;
+typedef struct MLP {
+  Layer **layers;
+  int *sz;
+  int nout;
+} MLP;
+
+Neuron *create_neuron(int nin) {
+  Neuron *neuron = (Neuron *)malloc(sizeof(Neuron));
+  neuron->nin = nin;
+  neuron->w = (Value **)malloc(nin * sizeof(Value *));
+  for (int i = 0; i < nin; i++) {
+    //neuron->w[i] = create_value(rand_uniform(-1, 1), NULL, 0, '\0', "");
+    neuron->w[i] = create_value(0.12, NULL, 0, '\0', "");
+  }
+  //neuron->b = create_value(rand_uniform(-1, 1), NULL, 0, '\0', "");
+  neuron->b = create_value(0.3, NULL, 0, '\0', "");
+  return neuron;
 }
 
-Value *add(Value *a, Value *b) {
-  Value *out = (Value *)malloc(sizeof(Value));
-  out->data = a->data + b->data;
-  out->grad = 0.0;
-  out->backward = backward_add;
-
-  out->prev_size = 2;
-  out->prev = (Value **)malloc(out->prev_size * sizeof(Value *));
-  out->prev[0] = a;
-  out->prev[1] = b;
-
-  out->op = '+';
-  out->label = "";
-
-  return out;
+Layer *create_layer(int nin, int nout) {
+  Layer *layer = (Layer *)malloc(sizeof(Layer));
+  layer->nin = nin;
+  layer->nout = nout;
+  layer->neurons = (Neuron **)malloc(nout * sizeof(Neuron *));
+  for (int i = 0; i < nout; i++) {
+    layer->neurons[i] = create_neuron(nin);
+  }
+  return layer;
 }
 
-Value *mul(Value *a, Value *b) {
-  Value *out = (Value *)malloc(sizeof(Value));
-  out->data = a->data * b->data;
-  out->grad = 0.0;
-  out->backward = backward_mul;
-
-  out->prev_size = 2;
-  out->prev = (Value **)malloc(out->prev_size * sizeof(Value *));
-  out->prev[0] = a;
-  out->prev[1] = b;
-
-  out->op = '*';
-  out->label = "";
-
-  return out;
+MLP *create_mlp(int nin, int *nouts, int nout) {
+  MLP *mlp = (MLP *)malloc(sizeof(MLP));
+  mlp->nout = nout;
+  mlp->sz = (int *)malloc((nout + 1) * sizeof(int));
+  mlp->sz[0] = nin;
+  for (int i = 0; i < nout; i++) {
+    mlp->sz[i + 1] = nouts[i];
+  }
+  mlp->layers = (Layer **)malloc(nout * sizeof(Layer *));
+  for (int i = 0; i < nout; i++) {
+    mlp->layers[i] = create_layer(mlp->sz[i], mlp->sz[i + 1]);
+  }
+  return mlp;
 }
 
-Value *tanh_v(Value *v) {
-  double x = v->data;
-  double t = (exp(2 * x) - 1) / (exp(2 * x) + 1);
-
-  Value *out = (Value *)malloc(sizeof(Value));
-  out->data = t;
-  out->grad = 0.0;
-  out->backward = backward_tanh;
-
-  out->prev_size = 1;
-  out->prev = (Value **)malloc(out->prev_size * sizeof(Value *));
-  out->prev[0] = v;
-
-  out->op = 't';
-  out->label = "";
-
-  return out;
+Value *neuron_call(Neuron *neuron, Value **x) {
+  Value *act = neuron->b;
+  for (int i = 0; i < neuron->nin; i++) {
+    Value *wi_xi = mul(neuron->w[i], x[i]);
+    act = add(act, wi_xi);
+  }
+  return tanh_v(act);
 }
 
-Value *pow_v(Value *v, double p) {
-  Value *out = (Value *)malloc(sizeof(Value));
-  out->data = pow(v->data, p);
-  out->grad = 0.0;
-  out->backward = backward_pow;
-
-  out->prev_size = 1;
-  out->prev = (Value **)malloc(out->prev_size * sizeof(Value *));
-  out->prev[0] = v;
-
-  out->op = 'p';
-  out->label = "";
-
-  return out;
+Value **layer_call(Layer *layer, Value **x) {
+  Value **outs = (Value **)malloc(layer->nout * sizeof(Value *));
+  for (int i = 0; i < layer->nout; i++) {
+    outs[i] = neuron_call(layer->neurons[i], x);
+  }
+  return outs;
 }
 
-Value *exp_v(Value *v) {
-  double x = v->data;
-  double e = exp(x);
+Value ***mlp_call(MLP *mlp, Value **x) {
+  // 分配記憶體以保存每層的輸出
+  Value ***layer_outputs = (Value ***)malloc(sizeof(Value **) * mlp->nout);
 
-  Value *out = (Value *)malloc(sizeof(Value));
-  out->data = e;
-  out->grad = 0.0;
-  out->backward = backward_exp;
+  Value **layer_input = x;
+  for (int i = 0; i < mlp->nout; i++) {
+    // 將當前層的輸出保存到陣列中
+    layer_outputs[i] = layer_call(mlp->layers[i], layer_input);
 
-  out->prev_size = 1;
-  out->prev = (Value **)malloc(out->prev_size * sizeof(Value *));
-  out->prev[0] = v;
-
-  out->op = 'e';
-  out->label = "";
-
-  return out;
-}
-
-void backward_add(struct Value *v) {
-  v->prev[0]->grad += 1.0 * v->grad;
-  v->prev[1]->grad += 1.0 * v->grad;
-}
-
-void backward_mul(struct Value *v) {
-  v->prev[0]->grad += v->prev[1]->data * v->grad;
-  v->prev[1]->grad += v->prev[0]->data * v->grad;
-}
-
-void backward_pow(struct Value *v) {
-  double n = v->data / v->prev[0]->data;
-  v->prev[0]->grad += n * pow(v->prev[0]->data, n - 1) * v->grad;
-}
-
-void backward_tanh(struct Value *v) {
-  double t = v->data;
-  v->prev[0]->grad += (1 - t * t) * v->grad;
-}
-
-void backward_exp(struct Value *v) {
-  double e = v->data;
-  v->prev[0]->grad += e * v->grad;
-}
-
-void backward_all(Value *v) {
-  if (v->prev_size == 0) {
-    return;
+    // 更新層輸入以供下一層使用
+    layer_input = layer_outputs[i];
   }
 
-  v->backward(v);
-
-  for (int i = 0; i < v->prev_size; i++) {
-    backward_all(v->prev[i]);
-  }
+  return layer_outputs;
 }
-
-int main() {
-  // inputs x1, x2
-  Value *x1 = create_value(2.0, NULL, 0, '\0', "x1");
-  Value *x2 = create_value(0.0, NULL, 0, '\0', "x2");
-  // weights w1, w2
-  Value *w1 = create_value(-3.0, NULL, 0, '\0', "w1");
-  Value *w2 = create_value(1.0, NULL, 0, '\0', "w2");
-  // bias b
-  Value *b = create_value(6.8813735870195432, NULL, 0, '\0', "b");
-  // x1w1 + x2w2 + b
-  Value *x1w1 = mul(x1, w1);
-  x1w1->label = "x1w1";
-  Value *x2w2 = mul(x2, w2);
-  x2w2->label = "x2w2";
-  Value *x1w1x2w2 = add(x1w1, x2w2);
-  x1w1x2w2->label = "x1w1x2w2";
-  Value *n = add(x1w1x2w2, b);
-  n->label = "n";
-  Value *o = tanh_v(n);
-  o->label = "o";
-  printf("o output: %f\n", o->data);
-
-  o->grad = 1.0;
-/*  o->backward(o);
-  printf("o grad: %f\n", o->grad);
-  printf("n grad: %f\n", n->grad);
-  n->backward(n);
-  printf("b grad: %f\n", b->grad);
-  printf("x1w1x2w2 grad: %f\n", x1w1x2w2->grad);
-  x1w1x2w2->backward(x1w1x2w2);
-  printf("x1w1 grad: %f\n", x1w1->grad);
-  printf("x2w2 grad: %f\n", x2w2->grad);
-  x1w1->backward(x1w1);
-  printf("x1 grad: %f\n", x1->grad);
-  printf("w1 grad: %f\n", w1->grad);
-  x2w2->backward(x2w2);
-  printf("x2 grad: %f\n", x2->grad);
-  printf("w2 grad: %f\n", w2->grad);
+/*
+Value **mlp_call(MLP *mlp, Value **x) {
+  Value **layer_output = x;
+  for (int i = 0; i < mlp->nout; i++) {
+    layer_output = layer_call(mlp->layers[i], layer_output);
+  }
+  return layer_output;
+}
 */
+void update_parameters(MLP *mlp, double learning_rate) {
+  for (int i = 0; i < mlp->nout; i++) {
+    Layer *layer = mlp->layers[i];
+    for (int j = 0; j < layer->nout; j++) {
+      Neuron *neuron = layer->neurons[j];
+      for (int k = 0; k < neuron->nin; k++) {
+        Value *p = neuron->w[k];
+        p->grad = 0.0;
+        backward_all(p);
+        p->data -= learning_rate * p->grad;
+      }
+      neuron->b->grad = 0.0;
+      backward_all(neuron->b);
+      neuron->b->data -= learning_rate * neuron->b->grad;
+    }
+  }
+}
 
-  backward_all(o);
+int main()
+{
+  srand(time(NULL));
+  int nouts[] = {4, 4, 1};
+  MLP *n = create_mlp(3, nouts, 3);
+  // Define the input
+  double xs[][3] = {{2.0, 3.0, -1.0}};
 
-  printf("Gradients:\n");
-  printf("x1: %f\n", x1->grad);
-  printf("x2: %f\n", x2->grad);
-  printf("w1: %f\n", w1->grad);
-  printf("w2: %f\n", w2->grad);
-  printf("x1w1: %f\n", x1w1->grad);
-  printf("x2w2: %f\n", x2w2->grad);
-  printf("x1w1x2w2: %f\n", x1w1x2w2->grad);
-  printf("b: %f\n", b->grad);
+  // Prepare the input as Value objects
+  Value *x[3];
+  for (int i = 0; i < 3; i++) {
+    x[i] = create_value(xs[0][i], NULL, 0, '\0', "");
+  }
 
-  // Free memory
-  free(x1);
-  free(x2);
-  free(w1);
-  free(w2);
-  free(b);
-  free(x1w1->prev);
-  free(x1w1);
-  free(x2w2->prev);
-  free(x2w2);
-  free(x1w1x2w2->prev);
-  free(x1w1x2w2);
-  free(n->prev);
+  // Calculate the layer output
+  Value ***y_out = mlp_call(n, x);
+
+  // Print the output
+  printf("MLP output: %.8f\n", y_out[2][0]->data);
+
+  // Free allocated memory
+  for (int i = 0; i < 3; i++) {
+    free(x[i]);
+  }
+
+  for (int i = 0; i < n->nout; i++) {
+    for (int j = 0; j < n->layers[i]->nout; j++) 
+       free(y_out[i][j]);
+    free(y_out[i]);
+  }
+  free(y_out);
+
+
+  for (int k = 0; k < n->nout; k++) {
+    for (int i = 0; i < n->layers[k]->nout; i++) {
+      for (int j = 0; j < n->layers[k]->neurons[i]->nin; j++) {
+        free(n->layers[k]->neurons[i]->w[j]);
+      }
+      free(n->layers[k]->neurons[i]->w);
+      free(n->layers[k]->neurons[i]->b);
+      free(n->layers[k]->neurons[i]);
+    }
+    free(n->layers[k]->neurons);
+    free(n->layers[k]);
+  }
+  free(n->layers);
   free(n);
-  free(o->prev);
-  free(o);
 
   return 0;
 }
+
+/*
+int main() {
+  srand(time(NULL));
+  // Create a layer with 2 inputs and 3 outputs
+  Layer *layer = create_layer(2, 3);
+
+  // Define the input
+  double xs[][2] = {{2.0, 3.0}};
+
+  // Prepare the input as Value objects
+  Value *x[2];
+  for (int i = 0; i < 2; i++) {
+    x[i] = create_value(xs[0][i], NULL, 0, '\0', "");
+  }
+
+  // Calculate the layer output
+  Value **y_out = layer_call(layer, x);
+
+  // Print the output
+  printf("Layer output:\n");
+  for (int i = 0; i < layer->nout; i++) {
+    printf("Output %d: %.8f\n", i, y_out[i]->data);
+  }
+
+  // Free allocated memory
+  for (int i = 0; i < 2; i++) {
+    free(x[i]);
+  }
+
+  for (int i = 0; i < layer->nout; i++) {
+    free(y_out[i]);
+  }
+  free(y_out);
+
+  for (int i = 0; i < layer->nout; i++) {
+    for (int j = 0; j < layer->neurons[i]->nin; j++) {
+      free(layer->neurons[i]->w[j]);
+    }
+    free(layer->neurons[i]->w);
+    free(layer->neurons[i]->b);
+    free(layer->neurons[i]);
+  }
+  free(layer->neurons);
+  free(layer);
+
+  return 0;
+}
+*/
+/*
+int main() {
+  srand(time(NULL));
+  // Create a neuron with 2 inputs
+  Neuron *neuron = create_neuron(2);
+
+  // Define the input
+  double xs[][2] = {{2.0, 3.0}};
+
+  // Prepare the input as Value objects
+  Value *x[2];
+  for (int i = 0; i < 2; i++) {
+    x[i] = create_value(xs[0][i], NULL, 0, '\0', "");
+  }
+
+  // Calculate the neuron output
+  Value *y_out = neuron_call(neuron, x);
+
+  // Print the output
+  printf("Neuron output: %.8f\n", y_out->data);
+
+  // Free allocated memory
+  for (int i = 0; i < 2; i++) {
+    free(x[i]);
+  }
+  free(y_out);
+
+  for (int i = 0; i < neuron->nin; i++) {
+    free(neuron->w[i]);
+  }
+  free(neuron->w);
+  free(neuron->b);
+  free(neuron);
+
+  return 0;
+}*/
+
+/*
+int main() {
+  srand(time(NULL));
+
+  int nouts[] = {4, 4, 1};
+  MLP *n = create_mlp(3, nouts, 3);
+
+  double xs[][3] = {
+      {2.0, 3.0, -1.0}, {3.0, -1.0, 0.5}, {0.5, 1.0, 1.0}, {1.0, 1.0, -1.0}};
+  double ys[] = {1.0, -1.0, -1.0, 1.0};
+
+  for (int k = 0; k < 20; k++) {
+    double loss = 0.0;
+    for (int i = 0; i < 4; i++) {
+      Value **x = (Value **)malloc(3 * sizeof(Value *));
+      for (int j = 0; j < 3; j++) {
+        x[j] = create_value(xs[i][j], NULL, 0, '\0', "");
+      }
+      Value **ypred = mlp_call(n, x);
+      Value *loss_i = pow_v(add(ypred[i], create_value(-ys[i], NULL, 0, '\0', "")), 2.0);
+      backward_all(loss_i);
+      update_parameters(n, 0.1);
+      
+      for (int j = 0; j < 3; j++) {
+        free(x[j]);
+      }
+      free(ypred);
+      free(loss_i);
+      loss += loss_i->data;
+    }
+    printf("%d %.8f\n", k, loss);
+  }
+
+  // Free allocated memory
+  for (int i = 0; i < n->nout; i++) {
+    Layer *layer = n->layers[i];
+    for (int j = 0; j < layer->nout; j++) {
+      Neuron *neuron = layer->neurons[j];
+      for (int k = 0; k < neuron->nin; k++) {
+        free(neuron->w[k]);
+      }
+      free(neuron->w);
+      free(neuron->b);
+      free(neuron);
+    }
+    free(layer->neurons);
+    free(layer);
+  }
+  free(n->layers);
+  free(n);
+
+  return 0;
+}
+*/
