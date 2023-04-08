@@ -14,9 +14,6 @@ Value *create_value(double data, Value **prev, int prev_size, char op,
 
 void free_value(Value *v) {
   if (v->prev != NULL) {
-    //for (int i = 0; i < v->prev_size; i++) {
-    //  free_value(v->prev[i]);
-    //}
     free(v->prev);
   }
   free(v);

@@ -10,8 +10,8 @@ typedef struct Neuron {
 
 Neuron *create_neuron(int nin);
 void free_neuron(Neuron *neuron);
-Value **neuron_call(Neuron *neuron, Value **x, int *allocated_count);
+Value **neuron_call(Neuron *neuron, Value **x, int *neuron_allocated_count);
 //Value *neuron_call(Neuron *neuron, Value **x);
-void free_allocated_values(Value **allocated_values, int allocated_count);
+void free_neuron_allocated_values(Value **neuron_allocated_values, int neuron_allocated_count);
 
 #endif
