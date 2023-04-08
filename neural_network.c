@@ -54,15 +54,6 @@ void free_mlp(MLP *mlp) {
   free(mlp->sz);
   free(mlp);
 }
-/*
-Value *neuron_call(Neuron *neuron, Value **x) {
-  Value *act = neuron->b;
-  for (int i = 0; i < neuron->nin; i++) {
-    Value *wi_xi = mul(neuron->w[i], x[i]);
-    act = add(act, wi_xi);
-  }
-  return tanh_v(act);
-}*/
 
 Value **layer_call(Layer *layer, Value **x) {
   Value **outs = (Value **)malloc(layer->nout * sizeof(Value *));

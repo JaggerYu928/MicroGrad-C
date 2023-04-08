@@ -46,3 +46,6 @@ clean:
 # 添加這個目標以運行Valgrind
 memcheck: $(TARGET)
 	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./$(TARGET)
+
+memcheckneuron: $(TEST_NEURON_TARGET)
+	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./$(TEST_NEURON_TARGET)

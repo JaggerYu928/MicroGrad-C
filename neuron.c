@@ -14,12 +14,23 @@ Neuron *create_neuron(int nin) {
 }
 
 void free_neuron(Neuron *neuron) {
-  //free(neuron->b);
+  free(neuron->b);
   for (int i = 0; i < neuron->nin; i++)
     free(neuron->w[i]);
   free(neuron->w);
   free(neuron);
 }
+
+/*
+Value *neuron_call(Neuron *neuron, Value **x) {
+  Value *act = neuron->b;
+  for (int i = 0; i < neuron->nin; i++) {
+    Value *wi_xi = mul(neuron->w[i], x[i]);
+    act = add(act, wi_xi);
+  }
+  return tanh_v(act);
+}
+*/
 
 Value **neuron_call(Neuron *neuron, Value **x, int *allocated_count) {
   *allocated_count = neuron->nin * 2 + 1;
@@ -30,7 +41,6 @@ Value **neuron_call(Neuron *neuron, Value **x, int *allocated_count) {
   for (int i = 0; i < neuron->nin; i++) {
     Value *wi_xi = mul(neuron->w[i], x[i]);
     allocated_values[idx++] = wi_xi;
-    Value *temp = act;
     act = add(act, wi_xi);
     allocated_values[idx++] = act;
   }

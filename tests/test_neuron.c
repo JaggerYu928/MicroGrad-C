@@ -2,7 +2,7 @@
 #include "../neuron.h"
 
 int main() {
-  srand(time(NULL));
+  // srand(time(NULL));
   // Create a neuron with 2 inputs
   Neuron *neuron = create_neuron(2);
 
@@ -15,10 +15,10 @@ int main() {
     x[i] = create_value(xs[0][i], NULL, 0, '\0', "");
   }
 
-  /*
+/*  
   // Calculate the neuron output
   Value *y_out = neuron_call(neuron, x);
-  */
+*/  
 
   // Calculate the neuron output and keep track of allocated memory
   int allocated_count;
