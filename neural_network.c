@@ -1,11 +1,6 @@
 #include <time.h>
 #include "value.h"
-
-typedef struct Neuron {
-  Value **w;
-  Value *b;
-  int nin;
-} Neuron;
+#include "neuron.h"
 
 typedef struct Layer {
   Neuron **neurons;
@@ -19,19 +14,6 @@ typedef struct MLP {
   int nout;
 } MLP;
 
-Neuron *create_neuron(int nin) {
-  Neuron *neuron = (Neuron *)malloc(sizeof(Neuron));
-  neuron->nin = nin;
-  neuron->w = (Value **)malloc(nin * sizeof(Value *));
-  for (int i = 0; i < nin; i++) {
-    //neuron->w[i] = create_value(rand_uniform(-1, 1), NULL, 0, '\0', "");
-    neuron->w[i] = create_value(0.12, NULL, 0, '\0', "");
-  }
-  //neuron->b = create_value(rand_uniform(-1, 1), NULL, 0, '\0', "");
-  neuron->b = create_value(0.3, NULL, 0, '\0', "");
-  return neuron;
-}
-
 Layer *create_layer(int nin, int nout) {
   Layer *layer = (Layer *)malloc(sizeof(Layer));
   layer->nin = nin;
@@ -41,6 +23,13 @@ Layer *create_layer(int nin, int nout) {
     layer->neurons[i] = create_neuron(nin);
   }
   return layer;
+}
+
+void free_layer(Layer *layer) {
+  for (int i = 0; i < layer->nout; i++)
+    free_neuron(layer->neurons[i]);
+  free(layer->neurons);
+  free(layer);
 }
 
 MLP *create_mlp(int nin, int *nouts, int nout) {
@@ -58,6 +47,14 @@ MLP *create_mlp(int nin, int *nouts, int nout) {
   return mlp;
 }
 
+void free_mlp(MLP *mlp) {
+  for (int i = 0; i < mlp->nout; i++) 
+    free_layer(mlp->layers[i]);
+  free(mlp->layers);
+  free(mlp->sz);
+  free(mlp);
+}
+/*
 Value *neuron_call(Neuron *neuron, Value **x) {
   Value *act = neuron->b;
   for (int i = 0; i < neuron->nin; i++) {
@@ -65,7 +62,7 @@ Value *neuron_call(Neuron *neuron, Value **x) {
     act = add(act, wi_xi);
   }
   return tanh_v(act);
-}
+}*/
 
 Value **layer_call(Layer *layer, Value **x) {
   Value **outs = (Value **)malloc(layer->nout * sizeof(Value *));
@@ -90,15 +87,7 @@ Value ***mlp_call(MLP *mlp, Value **x) {
 
   return layer_outputs;
 }
-/*
-Value **mlp_call(MLP *mlp, Value **x) {
-  Value **layer_output = x;
-  for (int i = 0; i < mlp->nout; i++) {
-    layer_output = layer_call(mlp->layers[i], layer_output);
-  }
-  return layer_output;
-}
-*/
+
 void update_parameters(MLP *mlp, double learning_rate) {
   for (int i = 0; i < mlp->nout; i++) {
     Layer *layer = mlp->layers[i];
@@ -116,7 +105,7 @@ void update_parameters(MLP *mlp, double learning_rate) {
     }
   }
 }
-
+/*
 int main()
 {
   srand(time(NULL));
@@ -136,6 +125,7 @@ int main()
 
   // Print the output
   printf("MLP output: %.8f\n", y_out[2][0]->data);
+  printf("MLP output prev: %s\n", y_out[2][0]->prev[0]->label);
 
   // Free allocated memory
   for (int i = 0; i < 3; i++) {
@@ -149,25 +139,10 @@ int main()
   }
   free(y_out);
 
-
-  for (int k = 0; k < n->nout; k++) {
-    for (int i = 0; i < n->layers[k]->nout; i++) {
-      for (int j = 0; j < n->layers[k]->neurons[i]->nin; j++) {
-        free(n->layers[k]->neurons[i]->w[j]);
-      }
-      free(n->layers[k]->neurons[i]->w);
-      free(n->layers[k]->neurons[i]->b);
-      free(n->layers[k]->neurons[i]);
-    }
-    free(n->layers[k]->neurons);
-    free(n->layers[k]);
-  }
-  free(n->layers);
-  free(n);
-
+  free_mlp(n);
   return 0;
 }
-
+*/
 /*
 int main() {
   srand(time(NULL));
@@ -216,7 +191,7 @@ int main() {
   return 0;
 }
 */
-/*
+
 int main() {
   srand(time(NULL));
   // Create a neuron with 2 inputs
@@ -231,27 +206,66 @@ int main() {
     x[i] = create_value(xs[0][i], NULL, 0, '\0', "");
   }
 
+  /*
   // Calculate the neuron output
   Value *y_out = neuron_call(neuron, x);
+  */
+
+  // Calculate the neuron output and keep track of allocated memory
+  int allocated_count;
+  Value **allocated_values = neuron_call(neuron, x, &allocated_count);
+  Value *y_out = allocated_values[allocated_count - 1];
 
   // Print the output
   printf("Neuron output: %.8f\n", y_out->data);
 
   // Free allocated memory
   for (int i = 0; i < 2; i++) {
-    free(x[i]);
+    free_value(x[i]);
   }
-  free(y_out);
+  //free_value(y_out);
+  //free_neuron(neuron);
+  free_allocated_values(allocated_values, allocated_count);
+  free_neuron(neuron);
+nt main() {
+  srand(time(NULL));
+  // Create a neuron with 2 inputs
+  Neuron *neuron = create_neuron(2);
 
-  for (int i = 0; i < neuron->nin; i++) {
-    free(neuron->w[i]);
+  // Define the input
+  double xs[][2] = {{2.0, 3.0}};
+
+  // Prepare the input as Value objects
+  Value *x[2];
+  for (int i = 0; i < 2; i++) {
+    x[i] = create_value(xs[0][i], NULL, 0, '\0', "");
   }
-  free(neuron->w);
-  free(neuron->b);
-  free(neuron);
+
+  /*
+  // Calculate the neuron output
+  Value *y_out = neuron_call(neuron, x);
+  */
+
+  // Calculate the neuron output and keep track of allocated memory
+  int allocated_count;
+  Value **allocated_values = neuron_call(neuron, x, &allocated_count);
+  Value *y_out = allocated_values[allocated_count - 1];
+
+  // Print the output
+  printf("Neuron output: %.8f\n", y_out->data);
+
+  // Free allocated memory
+  for (int i = 0; i < 2; i++) {
+    free_value(x[i]);
+  }
+  //free_value(y_out);
+  //free_neuron(neuron);
+  free_allocated_values(allocated_values, allocated_count);
+  free_neuron(neuron);
+
 
   return 0;
-}*/
+}
 
 /*
 int main() {

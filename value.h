@@ -24,7 +24,7 @@ void backward_all(Value *v);
 
 Value *create_value(double data, Value **prev, int prev_size, char op,
                     char *label);
-
+void free_value(Value *v);
 Value *add(Value *a, Value *b);
 Value *mul(Value *a, Value *b);
 Value *tanh_v(Value *v);
