@@ -38,11 +38,3 @@ void neuron_call(Neuron *neuron, Value **x) {
   neuron->allocated_values[idx++] = tanh_v(act);
 }
 
-/*
-void free_neuron_allocated_values(Value **neuron_allocated_values, int neuron_allocated_count) {
-  for (int i = 0; i < neuron_allocated_count; i++) {
-    free_value(neuron_allocated_values[i]);
-  }
-  free(neuron_allocated_values);
-}
-*/

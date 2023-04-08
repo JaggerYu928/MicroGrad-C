@@ -18,12 +18,9 @@ void free_layer(Layer *layer) {
   free(layer);
 }
 
-Value **layer_call(Layer *layer, Value **x) {
-  Value **outs = (Value **)malloc(layer->nout * sizeof(Value *));
+void layer_call(Layer *layer, Value **x) {
   for (int i = 0; i < layer->nout; i++) {
     neuron_call(layer->neurons[i], x);
-    outs[i] = layer->neurons[i]->allocated_values[layer->neurons[i]->allocated_count - 1];
   }
-  return outs;
 }
 
