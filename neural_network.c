@@ -1,6 +1,7 @@
 #include <time.h>
 #include "value.h"
 #include "neuron.h"
+#include "layer.h"
 
 typedef struct Layer {
   Neuron **neurons;

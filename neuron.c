@@ -10,6 +10,8 @@ Neuron *create_neuron(int nin) {
   }
   //neuron->b = create_value(rand_uniform(-1, 1), NULL, 0, '\0', "");
   neuron->b = create_value(0.3, NULL, 0, '\0', "");
+  neuron->allocated_count = neuron->nin * 2 + 1;
+  neuron->allocated_values = (Value **)malloc(neuron->allocated_count * sizeof(Value *));
   return neuron;
 }
 
@@ -18,40 +20,29 @@ void free_neuron(Neuron *neuron) {
   for (int i = 0; i < neuron->nin; i++)
     free(neuron->w[i]);
   free(neuron->w);
+  for (int i = 0; i < neuron->allocated_count; i++)
+    free_value(neuron->allocated_values[i]);
+  free(neuron->allocated_values);
   free(neuron);
 }
 
-/*
-Value *neuron_call(Neuron *neuron, Value **x) {
-  Value *act = neuron->b;
-  for (int i = 0; i < neuron->nin; i++) {
-    Value *wi_xi = mul(neuron->w[i], x[i]);
-    act = add(act, wi_xi);
-  }
-  return tanh_v(act);
-}
-*/
-
-Value **neuron_call(Neuron *neuron, Value **x, int *neuron_allocated_count) {
-  *neuron_allocated_count = neuron->nin * 2 + 1;
-  Value **neuron_allocated_values = (Value **)malloc(*neuron_allocated_count * sizeof(Value *));
+void neuron_call(Neuron *neuron, Value **x) {
   int idx = 0;
-
   Value *act = neuron->b;
   for (int i = 0; i < neuron->nin; i++) {
     Value *wi_xi = mul(neuron->w[i], x[i]);
-    neuron_allocated_values[idx++] = wi_xi;
+    neuron->allocated_values[idx++] = wi_xi;
     act = add(act, wi_xi);
-    neuron_allocated_values[idx++] = act;
+    neuron->allocated_values[idx++] = act;
   }
-  neuron_allocated_values[idx++] = tanh_v(act);
-  return neuron_allocated_values;
+  neuron->allocated_values[idx++] = tanh_v(act);
 }
 
+/*
 void free_neuron_allocated_values(Value **neuron_allocated_values, int neuron_allocated_count) {
   for (int i = 0; i < neuron_allocated_count; i++) {
     free_value(neuron_allocated_values[i]);
   }
   free(neuron_allocated_values);
 }
-
+*/

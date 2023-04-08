@@ -16,9 +16,9 @@ int main() {
   }
 
   // Calculate the neuron output and keep track of allocated memory
-  int neuron_allocated_count;
-  Value **neuron_allocated_values = neuron_call(neuron, x, &neuron_allocated_count);
-  Value *y_out = neuron_allocated_values[neuron_allocated_count - 1];
+  //int neuron_allocated_count;
+  neuron_call(neuron, x);
+  Value *y_out = neuron->allocated_values[neuron->allocated_count - 1];
 
   // Print the output
   printf("Neuron output: %.8f\n", y_out->data);
@@ -27,7 +27,7 @@ int main() {
   for (int i = 0; i < 2; i++) {
     free_value(x[i]);
   }
-  free_neuron_allocated_values(neuron_allocated_values, neuron_allocated_count);
+  //free_neuron_allocated_values(neuron_allocated_values, neuron_allocated_count);
   free_neuron(neuron);
 
   return 0;
