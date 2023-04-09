@@ -1,37 +1,11 @@
 #include <time.h>
-#include "value.h"
-#include "neuron.h"
 #include "layer.h"
-
-typedef struct Layer {
-  Neuron **neurons;
-  int nout;
-  int nin;
-} Layer;
 
 typedef struct MLP {
   Layer **layers;
   int *sz;
   int nout;
 } MLP;
-
-Layer *create_layer(int nin, int nout) {
-  Layer *layer = (Layer *)malloc(sizeof(Layer));
-  layer->nin = nin;
-  layer->nout = nout;
-  layer->neurons = (Neuron **)malloc(nout * sizeof(Neuron *));
-  for (int i = 0; i < nout; i++) {
-    layer->neurons[i] = create_neuron(nin);
-  }
-  return layer;
-}
-
-void free_layer(Layer *layer) {
-  for (int i = 0; i < layer->nout; i++)
-    free_neuron(layer->neurons[i]);
-  free(layer->neurons);
-  free(layer);
-}
 
 MLP *create_mlp(int nin, int *nouts, int nout) {
   MLP *mlp = (MLP *)malloc(sizeof(MLP));
@@ -56,14 +30,6 @@ void free_mlp(MLP *mlp) {
   free(mlp);
 }
 
-Value **layer_call(Layer *layer, Value **x) {
-  Value **outs = (Value **)malloc(layer->nout * sizeof(Value *));
-  for (int i = 0; i < layer->nout; i++) {
-    outs[i] = neuron_call(layer->neurons[i], x);
-  }
-  return outs;
-}
-
 Value ***mlp_call(MLP *mlp, Value **x) {
   // 分配記憶體以保存每層的輸出
   Value ***layer_outputs = (Value ***)malloc(sizeof(Value **) * mlp->nout);
@@ -71,7 +37,12 @@ Value ***mlp_call(MLP *mlp, Value **x) {
   Value **layer_input = x;
   for (int i = 0; i < mlp->nout; i++) {
     // 將當前層的輸出保存到陣列中
-    layer_outputs[i] = layer_call(mlp->layers[i], layer_input);
+    layer_call(mlp->layers[i], layer_input);
+    layer_outputs[i] = (Value **)malloc(sizeof(Value *) * mlp->layers[i]->nout);
+
+    for (int j = 0; j < mlp->layers[i]->nout; j++) {
+      layer_outputs[i][j] =  mlp->layers[i]->neurons[j]->allocated_values[mlp->layers[i]->neurons[j]->allocated_count - 1];
+    }
 
     // 更新層輸入以供下一層使用
     layer_input = layer_outputs[i];
@@ -97,7 +68,7 @@ void update_parameters(MLP *mlp, double learning_rate) {
     }
   }
 }
-/*
+
 int main()
 {
   srand(time(NULL));
@@ -117,7 +88,6 @@ int main()
 
   // Print the output
   printf("MLP output: %.8f\n", y_out[2][0]->data);
-  printf("MLP output prev: %s\n", y_out[2][0]->prev[0]->label);
 
   // Free allocated memory
   for (int i = 0; i < 3; i++) {
@@ -125,8 +95,6 @@ int main()
   }
 
   for (int i = 0; i < n->nout; i++) {
-    for (int j = 0; j < n->layers[i]->nout; j++) 
-       free(y_out[i][j]);
     free(y_out[i]);
   }
   free(y_out);
@@ -134,55 +102,7 @@ int main()
   free_mlp(n);
   return 0;
 }
-*/
-/*
-int main() {
-  srand(time(NULL));
-  // Create a layer with 2 inputs and 3 outputs
-  Layer *layer = create_layer(2, 3);
 
-  // Define the input
-  double xs[][2] = {{2.0, 3.0}};
-
-  // Prepare the input as Value objects
-  Value *x[2];
-  for (int i = 0; i < 2; i++) {
-    x[i] = create_value(xs[0][i], NULL, 0, '\0', "");
-  }
-
-  // Calculate the layer output
-  Value **y_out = layer_call(layer, x);
-
-  // Print the output
-  printf("Layer output:\n");
-  for (int i = 0; i < layer->nout; i++) {
-    printf("Output %d: %.8f\n", i, y_out[i]->data);
-  }
-
-  // Free allocated memory
-  for (int i = 0; i < 2; i++) {
-    free(x[i]);
-  }
-
-  for (int i = 0; i < layer->nout; i++) {
-    free(y_out[i]);
-  }
-  free(y_out);
-
-  for (int i = 0; i < layer->nout; i++) {
-    for (int j = 0; j < layer->neurons[i]->nin; j++) {
-      free(layer->neurons[i]->w[j]);
-    }
-    free(layer->neurons[i]->w);
-    free(layer->neurons[i]->b);
-    free(layer->neurons[i]);
-  }
-  free(layer->neurons);
-  free(layer);
-
-  return 0;
-}
-*/
 /*
 int main() {
   srand(time(NULL));

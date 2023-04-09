@@ -5,7 +5,7 @@ TARGET = neural_network
 TEST_TARGET = test_backpropagation
 TEST_NEURON_TARGET = test_neuron
 TEST_LAYER_TARGET = test_layer
-OBJS = neural_network.o value.o neuron.o
+OBJS = neural_network.o value.o neuron.o layer.o
 TEST_OBJS = tests/test_backpropagation.o value.o
 TEST_NEURON_OBJS = tests/test_neuron.o value.o neuron.o
 TEST_LAYER_OBJS = tests/test_layer.o value.o neuron.o layer.o
@@ -15,7 +15,7 @@ all: $(TARGET)
 $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -o $(TARGET) $(OBJS) $(LDFLAGS)
 
-neural_network.o: neural_network.c value.h
+neural_network.o: neural_network.c value.h layer.h
 	$(CC) $(CFLAGS) -c neural_network.c
 
 value.o: value.c value.h
@@ -23,6 +23,9 @@ value.o: value.c value.h
 
 neuron.o: neuron.c neuron.h
 	$(CC) $(CFLAGS) -c neuron.c
+
+layer.o: layer.c layer.h
+	$(CC) $(CFLAGS) -c layer.c
 
 $(TEST_TARGET): $(TEST_OBJS)
 	$(CC) $(CFLAGS) -o $(TEST_TARGET) $(TEST_OBJS) $(LDFLAGS)
