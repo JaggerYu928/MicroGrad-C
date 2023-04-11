@@ -4,6 +4,7 @@ Value *create_value(double data, Value **prev, int prev_size, char op,
                     char *label) {
   Value *v = (Value *)malloc(sizeof(Value));
   v->data = data;
+  v->backward = NULL;
   v->grad = 0.0;
   v->prev = prev;
   v->prev_size = prev_size;
@@ -135,13 +136,12 @@ void backward_exp(struct Value *v) {
 }
 
 void backward_all(Value *v) {
-  if (v->prev_size == 0) {
-    return;
-  }
-  printf("label: %s\n", v->label);
-  v->backward(v);
+  if(v->backward != NULL)
+    v->backward(v);  
 
-  for (int i = 0; i < v->prev_size; i++) {
-    backward_all(v->prev[i]);
+  if (v->prev_size != 0) {
+    for (int i = 0; i < v->prev_size; i++) {
+      backward_all(v->prev[i]);
+    }
   }
 }
