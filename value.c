@@ -14,12 +14,16 @@ Value *create_value(double data, Value **prev, int prev_size, char op,
 }
 
 void free_value(Value *v) {
-  if (v->prev != NULL) {
-    for (int i = 0; i < v->prev_size; i++)
-	   free_value(v->prev[i]);
-    free(v->prev);
+  if (v != NULL) {
+    if (v->prev_size != 0) {
+      for (int i = 0; i < v->prev_size; i++) {
+	    free_value(v->prev[i]);
+      }
+      free(v->prev);
+    }
+    if (v->backward != NULL)
+      free(v);
   }
-  free(v);
 }
 
 Value *add(Value *a, Value *b) {

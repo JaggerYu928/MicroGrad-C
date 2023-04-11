@@ -71,6 +71,8 @@ int main() {
   
   // Free allocated memory
   free_value(o);
+  for (int i = 0; i < 2; i++)
+     free(x[i]);  
   free_neuron(neuron);
   return 0;
 }

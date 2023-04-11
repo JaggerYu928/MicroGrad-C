@@ -10,5 +10,5 @@ typedef struct Layer {
 
 Layer *create_layer(int nin, int nout);
 void free_layer(Layer *layer);
-void layer_call(Layer *layer, Value **x);
+Value **layer_call(Layer *layer, Value **x);
 #endif

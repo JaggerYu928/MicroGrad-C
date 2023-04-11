@@ -15,18 +15,24 @@ int main() {
   }
 
   // Calculate the layer output
-  layer_call(layer, x);
+  Value **out = layer_call(layer, x);
 
   // Print the output
   printf("Layer output:\n");
   for (int i = 0; i < layer->nout; i++) {
-    printf("Output %d: %.8f\n", i, layer->neurons[i]->allocated_values[layer->neurons[i]->allocated_count - 1]->data);
+    printf("Output %d: %.8f\n", i, out[i]->data);
   }
 
   // Free allocated memory
-  for (int i = 0; i < 2; i++) {
-    free_value(x[i]);
+  for (int i = 0; i < layer->nout; i++) {
+    free_value(out[i]);
   }
+  free(out);
+  
+  for (int i = 0; i < 2; i++) {
+    free(x[i]);
+  }
+  
   free_layer(layer);
 
   return 0;
