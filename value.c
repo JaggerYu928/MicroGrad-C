@@ -1,3 +1,4 @@
+#include <string.h>
 #include "value.h"
 
 Value *create_value(double data, Value **prev, int prev_size, char op, 
@@ -21,7 +22,7 @@ void free_value(Value *v) {
       }
       free(v->prev);
     }
-    if (v->backward != NULL)
+    if (strcmp(v->label, "output") != 0)
       free(v);
   }
 }

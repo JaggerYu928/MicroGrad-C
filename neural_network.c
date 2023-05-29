@@ -37,12 +37,12 @@ Value ***mlp_call(MLP *mlp, Value **x) {
   Value **layer_input = x;
   for (int i = 0; i < mlp->nout; i++) {
     // 將當前層的輸出保存到陣列中
-    layer_call(mlp->layers[i], layer_input);
-    layer_outputs[i] = (Value **)malloc(sizeof(Value *) * mlp->layers[i]->nout);
+    layer_outputs[i] = layer_call(mlp->layers[i], layer_input);
+    //layer_outputs[i] = (Value **)malloc(sizeof(Value *) * mlp->layers[i]->nout);
 
-    for (int j = 0; j < mlp->layers[i]->nout; j++) {
-      layer_outputs[i][j] =  mlp->layers[i]->neurons[j]->allocated_values[mlp->layers[i]->neurons[j]->allocated_count - 1];
-    }
+    //for (int j = 0; j < mlp->layers[i]->nout; j++) {
+      //layer_outputs[i][j] =  mlp->layers[i]->neurons[j]->allocated_values[mlp->layers[i]->neurons[j]->allocated_count - 1];
+    //}
 
     // 更新層輸入以供下一層使用
     layer_input = layer_outputs[i];
@@ -87,19 +87,24 @@ int main()
   Value ***y_out = mlp_call(n, x);
 
   // Print the output
-  printf("MLP output: %.8f\n", y_out[2][0]->data);
+  for (int i = 0; i < n->layers[n->nout - 1]->nout; i++)
+    printf("MLP output: %.8f\n", y_out[n->nout - 1][i]->data);
 
   // Free allocated memory
-  for (int i = 0; i < 3; i++) {
-    free(x[i]);
-  }
-
+  for (int i = 0; i < n->layers[n->nout - 1]->nout; i++)
+    free_value(y_out[n->nout - 1][i]);
+  
   for (int i = 0; i < n->nout; i++) {
     free(y_out[i]);
   }
   free(y_out);
 
+  for (int i = 0; i < 3; i++) {
+    free(x[i]);
+  }
+
   free_mlp(n);
+
   return 0;
 }
 

@@ -31,6 +31,8 @@ Value *neuron_call(Neuron *neuron, Value **x) {
     act = add(act, wi_xi);
   }
   act = add(act, neuron->b);
-  return tanh_v(act);
+  act = tanh_v(act);
+  act->label = "output";
+  return act;
 }
 
